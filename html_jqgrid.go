@@ -9,7 +9,6 @@ import (
 )
 
 type JQGrid struct {
-	Data      string            `json:"datastr,omitempty" bson:"datastr,omitempty"`
 	DataType  string            `json:"datatype,omitempty" bson:"datatype,omitempty"`
 	ColNames  []string          `json:"colNames,omitempty" bson:"colNames,omitempty"`
 	ColModel  []*JQGridColModel `json:"colModel,omitempty" bson:"colModel,omitempty"`
@@ -125,11 +124,6 @@ func (s *JQGrid) JSONString() (string, error) {
 	if s.rowData == nil {
 		return "", errors.New("no cell data")
 	}
-	str, err := s.rowData.JSONString()
-	if err != nil {
-		return "", err
-	}
-	s.Data = str
 
 	b, err := json.Marshal(s)
 	if err != nil {
@@ -139,12 +133,17 @@ func (s *JQGrid) JSONString() (string, error) {
 }
 
 func (s *JQGrid) Output(src, des string) error {
-	json, err := s.JSONString()
+	option, err := s.JSONString()
+	if err != nil {
+		return err
+	}
+	data, err := s.rowData.JSONString()
 	if err != nil {
 		return err
 	}
 	aHTML := NewHtml(src, des)
-	aHTML.AddValue("Option", json)
+	aHTML.AddValue("Option", option)
+	aHTML.AddValue("Data", data)
 	aHTML.AddValue("Title", s.Caption)
 	errs := aHTML.Output()
 	if errs == nil {
