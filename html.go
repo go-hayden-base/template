@@ -87,7 +87,7 @@ func (s *Html) check() error {
 		return errors.New("Please set source directory")
 	}
 	indexPath := path.Join(s.SourcePath, "index.html")
-	if fs.FileExists(indexPath) {
+	if !fs.FileExists(indexPath) {
 		return errors.New("Source must contain index.html")
 	}
 	return nil
