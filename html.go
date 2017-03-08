@@ -2,35 +2,34 @@ package template
 
 import "path"
 import "errors"
-import "io/ioutil"
+
 import "github.com/go-hayden-base/fs"
 import "os"
 import "strings"
 import "bytes"
-
-const (
-	_TAG_CSS = `{{CSS}}`
-	_TAG_JS  = `{{JS}}`
-)
+import "path/filepath"
 
 type Html struct {
-	Css             []string
-	Js              []string
-	Index           string
+	SourcePath      string
 	OutputDirectory string
 
 	valueMap map[string]string
 }
 
-func (s *Html) Output() error {
-	if err := s.outputCss(); err != nil {
-		return err
+func NewHtml(src, des string) *Html {
+	aHtml := new(Html)
+	aHtml.SourcePath = src
+	aHtml.OutputDirectory = des
+	aHtml.valueMap = make(map[string]string)
+	return aHtml
+}
+
+func (s *Html) Output() []error {
+	if err := s.check(); err != nil {
+		return []error{err}
 	}
-	if err := s.outputJs(); err != nil {
-		return err
-	}
-	if err := s.outputIndex(); err != nil {
-		return err
+	if errs := fs.CopyDirectory(s.SourcePath, s.OutputDirectory); errs != nil {
+		return errs
 	}
 	return nil
 }
@@ -53,36 +52,25 @@ func (s *Html) ValueForKey(key string) (string, bool) {
 	return val, ok
 }
 
-func (s *Html) outputIndex() error {
-	if !fs.FileExists(s.Index) {
+func (s *Html) renderIndex() error {
+	indexPath := filepath.Join(s.OutputDirectory, "index.html")
+	if !fs.FileExists(indexPath) {
 		return errors.New("Can not find index html file in ")
 	}
 	buffer := new(bytes.Buffer)
-	fs.ReadLine(s.Index, func(line string, finished bool, err error, stop *bool) {
+	fs.ReadLine(indexPath, func(line string, finished bool, err error, stop *bool) {
 		line = s.renderLine(line)
 		buffer.WriteString(line + "\n")
 	})
-	p := path.Join(s.OutputDirectory, "index.html")
-	if err := fs.WriteFile(p, buffer.Bytes(), true, os.ModePerm); err != nil {
+	if err := fs.WriteFile(indexPath, buffer.Bytes(), true, os.ModePerm); err != nil {
 		return err
 	}
 	return nil
 }
 
 func (s *Html) renderLine(line string) string {
-	if strings.Index(line, _TAG_CSS) > -1 {
-		tags := s.htmlTags(_TAG_CSS)
-		return strings.Replace(line, _TAG_CSS, strings.Join(tags, ""), -1)
-	}
-	if strings.Index(line, _TAG_JS) > -1 {
-		tags := s.htmlTags(_TAG_JS)
-		return strings.Replace(line, _TAG_JS, strings.Join(tags, ""), -1)
-	}
 	for key, val := range s.valueMap {
 		tag := "{{" + key + "}}"
-		if tag == _TAG_CSS || tag == _TAG_JS {
-			continue
-		}
 		if strings.Index(line, tag) < 0 {
 			continue
 		}
@@ -91,65 +79,16 @@ func (s *Html) renderLine(line string) string {
 	return line
 }
 
-func (s *Html) htmlTags(t string) []string {
-	var arr []string
-	var dir, prefix, suffix string
-	if t == _TAG_CSS {
-		arr, dir, prefix, suffix = s.Css, "css", `<link rel="stylesheet" href="`, `" />`
-	} else if t == _TAG_JS {
-		arr, dir, prefix, suffix = s.Js, "js", `<script type="text/javascript" src="`, `"></script>`
-	}
-	res := make([]string, 0, len(arr))
-	for _, p := range arr {
-		name := path.Base(p)
-		res = append(res, prefix+path.Join(dir, name)+suffix)
-	}
-	return res
-}
-
-func (s *Html) outputCss() error {
-	if len(s.Css) == 0 {
-		return nil
-	}
-	if err := s.check(); err != nil {
-		return err
-	}
-	for _, cssFilePath := range s.Css {
-		if b, err := ioutil.ReadFile(cssFilePath); err != nil {
-			return err
-		} else {
-			newCssFilePath := path.Join(s.OutputDirectory, "css", path.Base(cssFilePath))
-			if err := fs.WriteFile(newCssFilePath, b, true, os.ModePerm); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func (s *Html) outputJs() error {
-	if len(s.Js) == 0 {
-		return nil
-	}
-	if err := s.check(); err != nil {
-		return err
-	}
-	for _, jsFilePath := range s.Js {
-		if b, err := ioutil.ReadFile(jsFilePath); err != nil {
-			return err
-		} else {
-			newJsFilePath := path.Join(s.OutputDirectory, "css", path.Base(jsFilePath))
-			if err := fs.WriteFile(newJsFilePath, b, true, os.ModePerm); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
 func (s *Html) check() error {
-	if s.OutputDirectory == "" || !path.IsAbs(s.OutputDirectory) {
+	if s.OutputDirectory == "" || !filepath.IsAbs(s.OutputDirectory) {
 		return errors.New("Please set output directory")
+	}
+	if s.SourcePath == "" || !filepath.IsAbs(s.SourcePath) {
+		return errors.New("Please set source directory")
+	}
+	indexPath := path.Join(s.SourcePath, "index.html")
+	if fs.FileExists(indexPath) {
+		return errors.New("Source must contain index.html")
 	}
 	return nil
 }
