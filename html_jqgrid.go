@@ -1,6 +1,7 @@
 package template
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"math"
@@ -135,6 +136,24 @@ func (s *JQGrid) JSONString() (string, error) {
 		return "", err
 	}
 	return string(b), nil
+}
+
+func (s *JQGrid) Output(src, des string) error {
+	json, err := s.JSONString()
+	if err != nil {
+		return err
+	}
+	aHTML := NewHtml(src, des)
+	aHTML.AddValue("data", json)
+	errs := aHTML.Output()
+	if errs == nil {
+		return nil
+	}
+	buffer := new(bytes.Buffer)
+	for _, aErr := range errs {
+		buffer.WriteString(aErr.Error() + "\n")
+	}
+	return errors.New(buffer.String())
 }
 
 func (s *JQGridRow) JSONString() (string, error) {
