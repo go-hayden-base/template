@@ -144,7 +144,8 @@ func (s *JQGrid) Output(src, des string) error {
 		return err
 	}
 	aHTML := NewHtml(src, des)
-	aHTML.AddValue("data", json)
+	aHTML.AddValue("Option", json)
+	aHTML.AddValue("Title", s.Caption)
 	errs := aHTML.Output()
 	if errs == nil {
 		return nil
