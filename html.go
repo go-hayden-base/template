@@ -31,6 +31,9 @@ func (s *Html) Output() []error {
 	if errs := fs.CopyDirectory(s.SourcePath, s.OutputDirectory); errs != nil {
 		return errs
 	}
+	if err := s.renderIndex(); err != nil {
+		return []error{err}
+	}
 	return nil
 }
 
